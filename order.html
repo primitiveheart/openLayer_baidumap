@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <link rel="stylesheet" href="https://openlayers.org/en/v4.5.0/css/ol.css" type="text/css">
+    <!-- The line below is only needed for old environments like Internet Explorer and Android 4.x -->
+    <script src="https://cdn.polyfill.io/v2/polyfill.min.js?features=requestAnimationFrame,Element.prototype.classList,URL"></script>
+    <script src="https://openlayers.org/en/v4.5.0/build/ol.js"></script>
+    <script type="text/javascript" src="js/jquery-3.2.1.js"></script>
+    <script type="text/javascript" src="My97DatePicker/WdatePicker.js"></script>
+    
+    <script type="text/javascript" src="js/layer.js"></script>
+    <script type="text/javascript" src="js/addInteraction.js"></script>
+    <script type="text/javascript" src="js/calcArea.js"></script>
+    <style type="text/css">
+        body,html{
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            font-family: "微软雅黑";
+            padding: 0;
+        }
+        .main{
+            margin-left: 40%;
+            margin-right: 10%;
+        }
+    </style>
+    <title>订单管理</title>
+  </head>
+  <body>
+      <div class="main">
+        <div id="order">
+            <h1>选择类型</h1>
+            <label for="year">年份</label>
+            <input type="text" class="Wdate" name="year" id="year" onfocus="WdatePicker({lang:'zh-cn',dateFmt:'yyyy',readonly:true,skin:'whyGreen'})">
+            <label for="year"></label>
+            <form class="form-inline">
+            	<label>选择区域的类型：</label>
+            	<select id="type">
+            		<option value="LineString" selected="selected">矩形</option>
+            		<option value="Circle">圆形</option>
+            		<option value="Polygon">多边形</option>
+            	</select>
+            </form>
+            <div id="map" style="overflow: hidden;width: 400px;height: 400px;"></div>
+            <h2>指标</h2>
+            <input type="checkbox" name="index" id="people">人口
+            <input type="checkbox" name="index" id="income">农业收入
+            <h1>输出结果</h1>
+            <input type="checkbox" name="result" id="data">矢量数据
+            <input type="checkbox" name="result" id="special">专题图
+            <input type="checkbox" name="result" id="sum">汇总值<br><br><br>
+            <button id="next" style="width: 100px;height: 30px" >下一步</button>
+        </div>
+
+    </div>
+    <div id="display">
+        <label>年份:</label><label  for="year" id="dis_year" name="dis_yaer"></label><br>
+        <label>选择区域的面积:</label><label id="area" name="area"></label>(单位:km)
+    </div>
+    
+    
+    <script>
+      var map = new ol.Map({
+        layers: layers,
+        target: 'map',
+        view: new ol.View({
+          center: [12959773,4853101],
+          zoom: 12
+        })
+      });
+    
+     var source = new ol.source.Vector();
+     var vector = new ol.layer.Vector({
+     	source:source
+     });
+     
+     map.addLayer(vector);
+     
+     var draw_style = new ol.style.Style({
+     	fill:new ol.style.Fill({
+     		color:'rgba(255, 255, 255, 0.2)'
+     	}),
+     	stroke:new ol.style.Stroke({
+     		color:"#ffcc33",
+     		width:2
+     	}),
+     	image:new ol.style.Circle({
+     		radius:7,
+     		fill:new ol.style.Fill({
+     			color:'#ffcc33'
+     		})
+     	})
+     })
+     
+//   var circle = new ol.interaction.Draw({
+//   	source:source,
+//   	type:"Circle",
+//   	style:draw_style
+//   })
+//   
+//   var polygon = new ol.interaction.Draw({
+//   	source:source,
+//   	type:'Polygon',
+//   	style:draw_style
+//   })
+//   
+//   var rectangle = new ol.interaction.Draw({
+//   	source:source,
+//   	type:'LineString',
+//   	style:draw_style,
+//   	maxPoints:2,
+//   	geometryFunction:function(coordinates,geometry){
+//   		if(!geometry){
+//   			geometry = new ol.geom.Polygon(null);
+//   		}
+//   		var start = coordinates[0];
+//   		var end = coordinates[1];
+//   		geometry.setCoordinates([
+//   			[start, [start[0], end[1]], end, [end[0], start[1]]]
+//   		]);
+//   		return geometry;
+//   	}
+//   })
+//   
+//   map.addInteraction(polygon);
+//    
+  
+
+    $(document).ready(function(){
+        $("#display").hide();
+        var typeSelect = $("#type");
+        var value = typeSelect[0].value;
+        var sum_area ;
+        
+        typeSelect.on("change", function(){
+        	map.removeInteraction(draw);
+        	value = typeSelect[0].value;
+       		addInteraction(value, vector);
+       		draw.on('drawend',function(e){
+       			var geometrty = e.feature.getGeometry();
+   				sum_area = calcArea(value, geometrty)
+   			},this)
+        })
+   		addInteraction(value, vector);
+   		draw.on('drawend',function(e){
+   			var geometry = e.feature.getGeometry();
+   			sum_area = calcArea(value, geometry);
+   		},this)
+   		
+   		
+   		
+        $("#next").on("click",function () {
+            $("#order").hide();
+            $("#display").show();
+            var year = $("#year").val();
+            var temp = sum_area;
+            $("#dis_year").text(year);
+            $("#area").html(temp);
+            if($("#people").prop("checked")){
+                $("#display").append("<br><label>人口:</label>");
+            }
+            if($("#income").prop("checked")){
+                $("#display").append("<br><label>农业收入:</label>");
+            }
+            if($("#data").prop("checked")){
+                $("#display").append("<br><label>矢量数据:</label>");
+            }
+            if($("#special").prop("checked")){
+                $("#display").append("<br><label>专题图:</label>");
+            }
+            if($("#sum").prop("checked")){
+                $("#display").append("<br><label>汇总值:</label>");
+            }
+            $("#display").append("<hr/>")
+            $("#display").append("<br><label>总值:</label>")
+        })
+    })
+    
+    </script>
+  </body>
+</html>
